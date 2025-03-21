@@ -16,14 +16,14 @@ module load poetry
 
 # Setting up workspace and project names
 WORKSPACE_NAME="monotop_detection"
-PROJECT_NAME="planar_convvae_500ep"
+PROJECT_NAME="monotope_200_A"
 
 # Creating a new project
 echo "Creating new project..."
 poetry run bead -m new_project -p ${WORKSPACE_NAME} ${PROJECT_NAME}
 
 echo "Copying input data to workspace..."
-cp ${HOME}/dq/data/csv/* ${HOME}/BEAD/bead/workspaces/${WORKSPACE_NAME}/data/csv/
+cp ${HOME}/BEAD/bead/workspaces/dq/data/csv/* ${HOME}/BEAD/bead/workspaces/${WORKSPACE_NAME}/data/csv/
 
 # Updating the configuration file
 CONFIG_FILE="${HOME}/BEAD/bead/workspaces/${WORKSPACE_NAME}/${PROJECT_NAME}/config/${PROJECT_NAME}_config.py"
@@ -52,7 +52,7 @@ echo "Job completed at: $(date)"
 
 # Archiving the results
 RESULTS_DIR="${HOME}/BEAD/bead/workspaces/${WORKSPACE_NAME}/${PROJECT_NAME}/output"
-ARCHIVE_NAME="monotop_results_${PROJECT_NAME}_$(date +%Y%m%d_%H%M%S).tar.gz"
+ARCHIVE_NAME="${PROJECT_NAME}_$(date +%Y%m%d_%H%M%S).tar.gz"
 
 echo "Archiving results to ${ARCHIVE_NAME}..."
 tar -czf ${HOME}/BEAD/bead/workspaces/${WORKSPACE_NAME}/${ARCHIVE_NAME} -C ${RESULTS_DIR} .
