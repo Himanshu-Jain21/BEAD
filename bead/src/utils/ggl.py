@@ -459,7 +459,6 @@ def run_training(paths, config, verbose: bool = False):
 
     # Preprocess the data for training
     data = data_processing.preproc_inputs(paths, config, keyword, verbose)
-
     # Output path
     output_path = os.path.join(paths["project_path"], "output")
     if verbose:
@@ -563,11 +562,37 @@ def run_plots(output_path, config, verbose: bool):
     """
     if verbose:
         print("Plotting...")
-        print(f"Saving plots to {output_path}")
-    ggl.loss_plotter(
-        os.path.join(output_path, "training", "loss_data.npy"), output_path, config
+        print(f"Saving plots to {output_path['output_path']}")
+    #Extracting train suffix from the files of the output path/results
+    file_name = os.listdir(os.path.join(output_path["output_path"], "results"))
+    loss_name = [name for name in file_name if "train.npy" in name]
+    for i in loss_name:
+        train_loss = np.load(os.path.join(output_path["output_path"], "results", i))
+        val_loss = np.load(os.path.join(output_path["output_path"], "results", f'{i.split("_")[0]}_val.npy'))
+        total_loss = np.vstack((train_loss, val_loss))
+        loss_plotter(
+            total_loss, output_path['output_path'], config, label = i.split("_")[0]
+        )
+    
+    train_loss = np.load(os.path.join(output_path["output_path"], "results", "train_epoch_loss_data.npy"))
+    val_loss = np.load(os.path.join(output_path["output_path"], "results", "val_epoch_loss_data.npy"))
+    total_loss = np.vstack((train_loss, val_loss))
+    loss_plotter(
+        total_loss, output_path['output_path'], config, label = "epoch_loss"
     )
-    ggl.plotter(output_path, config)
+
+    mu_data = np.load(os.path.join(output_path["output_path"], "results", "mu_data.npy"))
+    mu_data = mu_data.reshape(-1, mu_data.shape[-1])
+    logvar_data = np.load(os.path.join(output_path["output_path"], "results", "logvar_data.npy"))
+    logvar_data = logvar_data.reshape(-1, logvar_data.shape[-1])
+    z0_data = np.load(os.path.join(output_path["output_path"], "results", "z0_data.npy"))
+    z0_data = z0_data.reshape(-1, z0_data.shape[-1])
+    z0_data = np.mean(z0_data, axis=0)
+    zk_data = np.load(os.path.join(output_path["output_path"], "results", "zk_data.npy"))
+    zk_data = zk_data.reshape(-1, zk_data.shape[-1])
+    zk_data = np.mean(zk_data, axis=0)
+    total_data = [mu_data, logvar_data, z0_data, zk_data]
+    plotting.plot_latent_space(total_data, output_path['output_path'], config)
 
 
 def plotter(output_path, config):
@@ -584,7 +609,7 @@ def plotter(output_path, config):
     print("Your plots are available in:", os.path.join(output_path, "plotting"))
 
 
-def loss_plotter(path_to_loss_data, output_path, config):
+def loss_plotter(loss_data, output_path, config, label):
     """Calls `plotting.loss_plot()`
 
     Args:
@@ -595,7 +620,7 @@ def loss_plotter(path_to_loss_data, output_path, config):
     Returns:
         .pdf file: Plot containing the loss curves
     """
-    return plotting.loss_plot(path_to_loss_data, output_path, config)
+    return plotting.loss_plot(loss_data, output_path, config, label)
 
 
 def run_diagnostics(project_path, verbose: bool):

@@ -38,6 +38,7 @@ def fit(
     loss_fn,
     reg_param,
     optimizer,
+    device
 ):
     """This function trains the model on the train set. It computes the losses and does the backwards propagation, and updates the optimizer as well.
     
@@ -62,6 +63,8 @@ def fit(
     for idx, batch in enumerate(tqdm(dataloader)):
         
         inputs, labels = batch
+        inputs = inputs.to(device, non_blocking = True)
+        labels = labels.to(device, non_blocking = True)
         # Set previous gradients to zero
         optimizer.zero_grad()
 
@@ -94,7 +97,7 @@ def fit(
     return losses, epoch_loss, model
 
 
-def validate(config, model, dataloader, loss_fn, reg_param):
+def validate(config, model, dataloader, loss_fn, reg_param, device):
     """Function used to validate the training. Not necessary for doing compression, but gives a good indication of wether the model selected is a good fit or not.
     
     Args:
@@ -117,6 +120,8 @@ def validate(config, model, dataloader, loss_fn, reg_param):
         for idx, batch in enumerate(tqdm(dataloader)):
     
             inputs, labels = batch
+            inputs = inputs.to(device, non_blocking = True)
+            labels = labels.to(device, non_blocking = True)
 
             out = helper.call_forward(model, inputs)
             recon, mu, logvar, ldj, z0, zk = out
@@ -209,7 +214,6 @@ def train(
         x.to(device)
         for x in labeled_data
     ]
-
     # Split data and labels
     if verbose:
         print("Splitting data and labels")
@@ -233,9 +237,8 @@ def train(
     jets_val_label,
     constituents_val_label,
     ) = labels
-
     # Reshape tensors to pass to conv layers
-    if "ConvVAE" in config.model_name:
+    if "ConvVAE" in config.model_name or "ConvAE" in config.model_name:
         (
             events_train,
             jets_train,
@@ -279,6 +282,7 @@ def train(
 
     # Calculate the input shapes to initialize the model
     in_shape = helper.calculate_in_shape(data, config)
+    print("In shape", in_shape)
 
     # Instantiate and Initialize the model
     if verbose:
@@ -323,6 +327,7 @@ def train(
                 generator=g,
                 drop_last=True,
                 num_workers=config.parallel_workers,
+                pin_memory=True
             )
             for ds in [ds["events_train"], ds["jets_train"], ds["constituents_train"]]
         ]
@@ -335,16 +340,17 @@ def train(
                 generator=g,
                 drop_last=True,
                 num_workers=config.parallel_workers,
+                pin_memory=True
             )
             for ds in [ds["events_val"], ds["jets_val"], ds["constituents_val"]]
         ]
     else:
         train_dl_list = [
-            DataLoader(ds, batch_size=config.batch_size, shuffle=False, drop_last=True, num_workers=config.parallel_workers,)
+            DataLoader(ds, batch_size=config.batch_size, shuffle=False, drop_last=True, num_workers=config.parallel_workers,pin_memory=True)
             for ds in [ds["events_train"], ds["jets_train"], ds["constituents_train"]]
         ]
         valid_dl_list = [
-            DataLoader(ds, batch_size=config.batch_size, shuffle=False, drop_last=True, num_workers=config.parallel_workers,)
+            DataLoader(ds, batch_size=config.batch_size, shuffle=False, drop_last=True, num_workers=config.parallel_workers,pin_memory=True)
             for ds in [ds["events_val"], ds["jets_val"], ds["constituents_val"]]
         ]
     # Unpacking the DataLoader lists
@@ -432,6 +438,7 @@ def train(
             loss_fn=loss_fn,
             reg_param=config.reg_param,
             optimizer=optimizer,
+            device = device
         )
         train_loss.append(train_epoch_loss.detach().cpu().numpy())
         train_loss_data.append(train_losses)
@@ -443,6 +450,7 @@ def train(
                 dataloader=valid_dl,
                 loss_fn=loss_fn,
                 reg_param=config.reg_param,
+                device = device
             )
             val_loss.append(val_epoch_loss.detach().cpu().numpy())
             val_loss_data.append(val_losses)
@@ -460,7 +468,7 @@ def train(
         if config.intermittent_model_saving:
             if epoch % config.intermittent_saving_patience == 0:
                 path = os.path.join(output_path, "models", f"model_{epoch}.pt")
-                helper.model_saver(model, path)
+                helper.save_model(model, path)
 
         # Implementing Early Stopping
         if config.early_stopping:

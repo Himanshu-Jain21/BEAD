@@ -216,13 +216,14 @@ def infer(
                 generator=g,
                 drop_last=True,
                 num_workers=config.parallel_workers,
+                pin_memory = True
             )
             for ds in [ds["events"], ds["jets"], ds["constituents"]]
         ]
         
     else:
         test_dl_list = [
-            DataLoader(ds, batch_size=config.batch_size, shuffle=False, drop_last=True, num_workers=config.parallel_workers,)
+            DataLoader(ds, batch_size=config.batch_size, shuffle=False, drop_last=True, num_workers=config.parallel_workers, pin_memory=True)
             for ds in [ds["events"], ds["jets"], ds["constituents"]]
         ]
         
@@ -273,10 +274,13 @@ def infer(
     parameters = model.parameters()
 
     with torch.no_grad():
+
         for idx, batch in enumerate(tqdm(test_dl)):
     
             inputs, labels = batch
-
+            inputs = inputs.to(device, non_blocking = True)
+            labels = labels.to(device, non_blocking = True)
+            
             out = helper.call_forward(model, inputs)
             recon, mu, logvar, ldj, z0, zk = out
 
@@ -294,7 +298,10 @@ def infer(
             reconstructed_data.append(recon.detach().cpu().numpy())
             mu_data.append(mu.detach().cpu().numpy())
             logvar_data.append(logvar.detach().cpu().numpy())
-            log_det_jacobian_data.append(ldj.detach().cpu().numpy())
+            if isinstance(ldj, int):
+                log_det_jacobian_data.append(ldj)
+            else:
+                log_det_jacobian_data.append(ldj.detach().cpu().numpy())
             z0_data.append(z0.detach().cpu().numpy())
             zk_data.append(zk.detach().cpu().numpy())
 
@@ -304,7 +311,7 @@ def infer(
     if config.activation_extraction:
         activations = diagnostics.dict_to_square_matrix(model.get_activations())
         model.detach_hooks(hooks)
-        np.save(os.path.join(project_path, "activations.npy"), activations)
+        np.save(os.path.join(output_path["project_path"], "activations.npy"), activations)
 
     if verbose:
         print(f"Training the model took {(end - start) / 60:.3} minutes")

@@ -20,7 +20,80 @@ from matplotlib.backends.backend_pdf import PdfPages
 from tqdm.rich import tqdm
 
 
-def loss_plot(path_to_loss_data, output_path, config):
+def loss_plot(loss_data, output_path, config, label):
+    """This function Plots the loss from the training and saves it
+
+    Args:
+        path_to_loss_data (string): Path to file containing loss plot data generated during training
+        output_path (path): Directory path to which the loss plot is saved
+        config (dataclass): The config class containing attributes set in the config file
+    """
+
+    str_list = ["Epochs:", "Model Name:", "Reg. Param:", "lr:", "BS:"]
+
+    train_loss = loss_data[0]
+    val_loss = loss_data[1]
+    conf_list = [
+        len(train_loss),
+        config.model_name,
+        config.reg_param,
+        config.lr,
+        config.batch_size,
+    ]
+
+    plt.figure(figsize=(10, 7))
+    plt.title(f'{label} plot')
+    plt.plot(train_loss, color="orange", label='Training')
+    plt.plot(val_loss, color="red", label='Validation')
+    for i in range(len(conf_list)):
+        plt.plot([], [], " ", label=str_list[i] + " " + str(conf_list[i]))
+    plt.xlabel("Epochs")
+    plt.yscale("log")
+    plt.ylabel(label)
+    plt.legend(loc="best")
+    plt.savefig(os.path.join(output_path, "plots", "training", f'{label}_plot.pdf'))
+    # plt.show()
+
+def plot_latent_space(data, output_path, config):
+    """Plots the parameters of the latent space of the model
+
+    Args:
+        data (np.array): The latent space data
+        output_path (path): Directory path to which the latent space plot is saved
+        config (dataclass): The config class containing attributes set in the config file
+    """
+    labels = ['mu', 'log_var', 'z0', 'zk']
+    for m in range(2):
+        dat_mean = np.mean(data[m], axis = 0)
+        dat_sd = np.std(data[m], axis = 0)
+        plt.figure(figsize=(10, 7))
+        plt.title(f'{labels[m]} plot')
+        plt.plot(range(1, len(dat_mean)+1), dat_mean, color="orange")
+        plt.scatter(range(1, len(dat_mean)+1), dat_mean)
+        plt.xlabel("Latent space components")
+        plt.ylabel(f'Mean of {labels[m]} over all samples in eanch batch')
+        plt.savefig(os.path.join(output_path, "plots", "eval", f'{labels[m]}_mean_plot.pdf'))
+        plt.close()
+        plt.figure(figsize=(10, 7))
+        plt.title(f'{labels[m]} plot')
+        plt.plot(range(1, len(dat_sd)+1), dat_sd, color="orange")
+        plt.scatter(range(1, len(dat_sd)+1), dat_sd)
+        plt.xlabel("Latent space components")
+        plt.ylabel(f'Standard deviation of {labels[m]} over all samples in each batch')
+        plt.savefig(os.path.join(output_path, "plots", "eval", f'{labels[m]}_sd_plot.pdf'))
+        plt.close()
+
+    plt.figure(figsize=(10, 7))
+    plt.title(f'Z_data plot')
+    plt.plot(range(1, len(data[-2])+1), data[-2], color="orange", label = labels[-2])
+    plt.plot(range(1, len(data[-1])+1), data[-1], color="red", label = labels[-1])
+    plt.xlabel("Latent space components")
+    plt.ylabel('Mean of Z_data over all samples in each batch')
+    plt.legend(loc="best")
+    plt.savefig(os.path.join(output_path, "plots", "eval", "Z_data_plot.pdf"))
+    plt.close()
+
+def loss_plot_help(path_to_loss_data, output_path, config, val_loss = True):
     """This function Plots the loss from the training and saves it
 
     Args:
@@ -31,10 +104,9 @@ def loss_plot(path_to_loss_data, output_path, config):
     loss_data = np.load(path_to_loss_data)
     str_list = ["Epochs:", "Model Name:", "Reg. Param:", "lr:", "BS:"]
 
-    train_loss = loss_data[0]
-    val_loss = loss_data[1]
+    loss = loss_data[1]
     conf_list = [
-        len(train_loss),
+        len(loss),
         config.model_name,
         config.reg_param,
         config.lr,
@@ -53,7 +125,6 @@ def loss_plot(path_to_loss_data, output_path, config):
     plt.ylabel("Loss")
     plt.legend(loc="best")
     plt.savefig(os.path.join(output_path, "plotting", "Loss_plot.pdf"))
-    # plt.show()
 
 
 def get_index_to_cut(column_index, cut, array):

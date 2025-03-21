@@ -23,6 +23,27 @@ from torch.autograd import Function, Variable
 from ..utils import helper
 from . import flows
 
+class my_model(nn.Module):
+    def __init__(self, in_shape, z_dim, *args, **kwargs):
+        super(my_model, self).__init__(*args, **kwargs)
+        self.z_dim = z_dim
+        self.in_shape = in_shape
+
+        self.n_features = in_shape[-1] * in_shape[-2]
+
+        self.flatten = nn.Flatten()
+        self.activation = nn.Tanh()
+
+        self.encoder = nn.Linear(self.n_features, z_dim)
+        self.decoder = nn.Linear(z_dim, self.n_features)
+
+    def forward(self, x):
+        x = self.flatten(x)
+        z = self.activation(self.encoder(x))
+        out = self.decoder(z)
+        out = out.view(self.in_shape)
+        return out, z, z, z, z, z
+
 
 class AE(nn.Module):
     # This class is a modified version of the original class by George Dialektakis found at
@@ -927,7 +948,7 @@ class TransformerAE(nn.Module):
         in_dim,
         h_dim=256,
         n_heads=1,
-        latent_size=50,
+        z_dim=50,
         activation=torch.nn.functional.gelu,
     ):
         super(TransformerAE, self).__init__()
@@ -935,7 +956,7 @@ class TransformerAE(nn.Module):
         self.transformer_encoder_layer_1 = torch.nn.TransformerEncoderLayer(
             batch_first=True,
             norm_first=True,
-            d_model=in_dim,
+            d_model=in_dim[-1]*in_dim[-2],
             activation=activation,
             dim_feedforward=h_dim,
             nhead=n_heads,
@@ -960,7 +981,7 @@ class TransformerAE(nn.Module):
 
         self.encoder_layer_1 = torch.nn.Sequential(
             torch.nn.LazyBatchNorm1d(),
-            torch.nn.Linear(in_dim, 256),
+            torch.nn.Linear(in_dim[-1]*in_dim[-2], 256),
             torch.nn.LeakyReLU(),
         )
 
@@ -972,13 +993,13 @@ class TransformerAE(nn.Module):
 
         self.encoder_layer_3 = torch.nn.Sequential(
             torch.nn.LazyBatchNorm1d(),
-            torch.nn.Linear(128, latent_size),
+            torch.nn.Linear(128, z_dim),
             torch.nn.LeakyReLU(),
         )
 
         self.decoder_layer_3 = torch.nn.Sequential(
             torch.nn.LazyBatchNorm1d(),
-            torch.nn.Linear(latent_size, 128),
+            torch.nn.Linear(z_dim, 128),
             torch.nn.LeakyReLU(),
         )
         self.decoder_layer_2 = torch.nn.Sequential(
@@ -986,7 +1007,7 @@ class TransformerAE(nn.Module):
         )
         self.decoder_layer_1 = torch.nn.Sequential(
             torch.nn.LazyBatchNorm1d(),
-            torch.nn.Linear(256, in_dim),
+            torch.nn.Linear(256, in_dim[-1]*in_dim[-2]),
             torch.nn.LeakyReLU(),
         )
 
@@ -1007,7 +1028,7 @@ class TransformerAE(nn.Module):
         )
 
         self.transformer_decoder_layer_1 = torch.nn.TransformerEncoderLayer(
-            d_model=in_dim,
+            d_model=in_dim[-1]*in_dim[-2],
             dim_feedforward=h_dim,
             activation=activation,
             nhead=n_heads,
@@ -1057,6 +1078,9 @@ class TransformerAE(nn.Module):
         Returns:
             _type_: _description_
         """
+        x_dim = x.shape
+        x = x.view(x_dim[0], -1)
         z = self.encoder(x)
         x = self.decoder(z)
+        x = x.view(x_dim)
         return x, z, z, z, z, z
